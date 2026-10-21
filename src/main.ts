@@ -3,7 +3,6 @@ import { Telegraf, Markup } from 'telegraf';
 import { saveUser, getUserById, setUserField, clearChatHistory } from "./db.js";
 
 import { aiAsk, allModels, freeModels } from "./ai.js";
-import { modes } from "./modes.js";
 
 const TOKEN = process.env.VERDICT_TOKEN ?? ""
 const bot = new Telegraf(TOKEN)
@@ -168,11 +167,12 @@ bot.action(/^model:(.+)$/, async (ctx) => {
 
   if (!model) return
 
-  setUserField(ctx.from.id, "model", model)
+  const selectedModel = model === "auto" ? "auto" : model
+  setUserField(ctx.from.id, "model", selectedModel)
 
   await ctx.reply(
     model === "auto"
-      ? "Model set to Auto."
+      ? "Auto enabled. VERDICT will try up to three free models."
       : `Model changed to: ${model}`
   )
 })
@@ -233,13 +233,20 @@ bot.on("text", async (ctx, next) => {
     return
   }
 
-  const r = await aiAsk(`Text (ANSWER ON THE LANGUAGE WRITTEN IN MESSAGE WITHOUT SPECIAL CHARACTERS (YOU CAN USE " AND ')): ${ctx.message.text}\n\n\nMode: ${modes[user?.mode ?? "author"]}`, user?.id)
+  let r: string | undefined
+  try {
+    r = await aiAsk(ctx.message.text, user?.id)
+  } catch (error) {
+    console.error("Failed to process Telegram message:", error)
+    await ctx.reply("Something went wrong while processing this message. Please try again.")
+    return
+  }
 
   if(r === undefined) return ctx.reply("API key not set.", Markup.inlineKeyboard([
     Markup.button.callback("Set your API key", "setApi")
   ]))
   
-  ctx.reply(String(r))
+  await ctx.reply(r)
 })
 
 process.on('uncaughtException', (err) => console.error('uncaughtException:', err))

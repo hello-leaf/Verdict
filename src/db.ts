@@ -14,7 +14,7 @@ export type User = {
 }
 
 const dbPath = process.env.DATABASE_PATH ?? "verdict.db";
-const db = new Database("verdict.db")
+const db = new Database(dbPath)
 
 // create table
 db.exec(`
